@@ -1,0 +1,32 @@
+[
+  {
+    "index": "1",
+    "id": "606579ae-5b03-11e9-bf32-0edbf3a4e7ee",
+    "name": "cac_dtn_test", 
+    "writable": "1",
+    "paths": {
+      "source": "/datasets/",
+      "dest": "/perftest/"
+    }
+  },
+  {
+    "index": "2",
+    "id": "924a32b0-6a2a-11e6-83a8-22000b97daec",
+    "name": "Pamela Hill Data Share",
+    "writable": "1",
+    "paths": {
+      "source": "/globus/datasets/",
+      "dest": "/globus/perftest/"
+    }
+  },
+  {
+    "index": "3",
+    "id": "e261ffb8-6d04-11e5-ba46-22000b92c6ec",
+    "name": "DME Perftest - Argonne",
+    "writable": "1",
+    "paths": {
+      "source": "/datasets/",
+      "dest": "/perftest/"
+    }
+  }
+]
