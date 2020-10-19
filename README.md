@@ -6,11 +6,13 @@ Automates test transfers to/from endpoints used in the Data Mobility Exhibition 
 ```bash
 ./rundme transfer --dataset ds10 --source 2 --non-dme-dest 924a32b0-6a2a-11e6-83a8-22000b97daec --dest-path my_dme_test/ds10 --create-path yes
 
-Source: cac_dtn_test:/datasets/ds10
-Destination: Some Test Endpoint:/my_dme_test/ds10
+Source endpoint name: cac_dtn_test
+Source path: /datasets/ds10
+Destination endpoint name: Some Test Endpoint
+Destination path: /perftest/my_dme_test/ds10
 Submitted transfer: be8fcec6-11d2-11eb-81b1-0e2f230cc907
-Get transfer details by running 'rundme status --taskid be8fcec6-11d2-11eb-81b1-0e2f230cc907'
-Visit the link below to see the changes: https://app.globus.org/app/file-manager?origin_id=606579ae-5b03-11e9-bf32-0edbf3a4e7ee&origin_path=%2Fdatasets%2Fds10&destination_id=924a32b0-6a2a-11e6-83a8-22000b97daec&destination_path=%2Fmy_dme_test%2Fds10
+Get transfer details by running 'rundme status --task-id be8fcec6-11d2-11eb-81b1-0e2f230cc907'
+Visit the link below to see the changes: https://app.globus.org/app/file-manager?origin_id=606579ae-5b03-11e9-bf32-0edbf3a4e7ee&origin_path=%2Fdatasets%2Fds10&destination_id=924a32b0-6a2a-11e6-83a8-22000b97daec&destination_path=%2Fperftest%2Fmy_dme_test%2Fds10
 ```
 Submits a transfer of dataset DS10 from DME endpoint #2 (as defined by the index in [`dme_data.json`](https://github.com/vasv/dme-utils/blob/main/dme_data.json)) to the endpoint with ID `924a32b0-6a2a-11e6-83a8-22000b97daec`. Files will be written to the `my_dme_test/ds10` subdirectory under the endpoint's writable root (usually `/perftest/` or `/globus/perftest`); check the resulting URL for the specific location. If the destination directory does not exist, it will be created before the transfer is submitted.
 
@@ -53,10 +55,12 @@ You can add your own endpoints to the `dme_data.json` file so that you don't nee
 Now we can submit a transfer from dataset DS04 from DME endpoint #1 as follows:
 ``` bash
 ./rundme transfer --dataset ds04 --source 1 --dest 9 --dest-path uchicago/esnet_test/ds04
-Source: cac_dtn_test:/datasets/ds04
-Destination: ESnet write test endpoint at Sunnyvale:/uchicago/esnet_test
+Source endpoint name: cac_dtn_test
+Source path: /datasets/ds04
+Destination endpoint name: ESnet write test endpoint at Sunnyvale
+Destination path: /uchicago/esnet_test/ds04
 Submitted transfer: ee7c6310-124f-11eb-893d-0a5521ff3f4b
-Get transfer details by running: ./rundme status --taskid ee7c6310-124f-11eb-893d-0a5521ff3f4b
+Get transfer details by running: ./rundme status --task-id ee7c6310-124f-11eb-893d-0a5521ff3f4b
 Visit the link below to see the changes: https://app.globus.org/app/file-manager?origin_id=606579ae-5b03-11e9-bf32-0edbf3a4e7ee&origin_path=%2Fdatasets%2Fds04&destination_id=496e6d9e-d465-11e7-96b6-22000a8cbd7d&destination_path=%2Fuchicago%2Fesnet_test%2Fds04
 ```
 Note: The above omits the `--create-path` option; assumes that the `uchicago/esnet_test/ds04` directory already exists on the destination endpoint under the writable root.

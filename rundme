@@ -279,9 +279,9 @@ if __name__ == '__main__':
     source_endpoint_id, source_path = get_endpoint(source_dest="SOURCE", args=args)
     dest_endpoint_id, dest_path = get_endpoint(source_dest="DEST", args=args)
 
-    print(f"Source endpoint ID: {tc.get_endpoint(source_endpoint_id)['display_name']}")
+    print(f"Source endpoint name: {tc.get_endpoint(source_endpoint_id)['display_name']}")
     print(f"Source path: {source_path}")
-    print(f"Destination endpoint ID: {tc.get_endpoint(dest_endpoint_id)['display_name']}")
+    print(f"Destination endpoint name: {tc.get_endpoint(dest_endpoint_id)['display_name']}")
     print(f"Destination path: {dest_path}")
 
     # Check user's group membership in DME Endpoint Access
