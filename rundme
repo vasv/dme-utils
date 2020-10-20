@@ -23,6 +23,8 @@ SCOPES = ('openid email profile '
           'urn:globus:auth:scope:transfer.api.globus.org:all '
           'urn:globus:auth:scope:groups.api.globus.org:all')
 
+DME_GROUP_ID = "3ca64c67-9daf-11e9-855f-0e45b29ab6fa"
+
 get_input = getattr(__builtins__, 'raw_input', input)
 
 def load_data_from_file(filepath):
@@ -285,6 +287,26 @@ if __name__ == '__main__':
     print(f"Destination path: {dest_path}")
 
     # Check user's group membership in DME Endpoint Access
+    import requests
+    headers = {'Authorization':'Bearer '+ groups_token}
+
+    # Only members of the DME Endpoint Access group can access DME endpoints
+    # Check/confirm group membership before proceeding
+    memberships = requests.get(
+      f"https://groups.api.globus.org/v2/groups/my_groups",
+      headers=headers).json()
+
+    try:
+      dme_membership = next(m for m in memberships if m["id"] == DME_GROUP_ID)
+      try:
+        status = next(s for s in dme_membership['my_memberships'] if s["status"] == "active")
+      except StopIteration as error:
+        print(f"You must be an active member of the DME Endpoint Access group to access DME endpoints")
+        sys.exit(1)
+    except StopIteration as error:
+      print(f"You must be a member of the DME Endpoint Access group to access DME endpoints")
+      print(f"Request membership at: https://app.globus.org/groups/3ca64c67-9daf-11e9-855f-0e45b29ab6fa/join")
+      sys.exit(1)
 
     # Autoactivate endpoints
     validate_endpoint_path(tc, source_endpoint_id, source_path)
@@ -300,10 +322,11 @@ if __name__ == '__main__':
       tc.endpoint_autoactivate(dest_endpoint_id)
     except GlobusAPIError as error:
       if error.http_status == 401:
-        sys.exit(f"Refresh token has expired. Please delete the `tokens` \
-          object from {DATA_FILE} and try again.")
+        sys.exit(f"Refresh token(s) expired. Please delete the  \
+          `~/.globus-native-apps.cfg` file and try again.")
       else:
-        raise error
+        print(f"Failed to autoactivate endpoint: {error.message}")
+        sys.exit(1)
 
     task_id, url = submit_transfer(
       tc=tc,
