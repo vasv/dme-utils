@@ -1,5 +1,5 @@
 # dme-utils
-Automates test transfers to/from endpoints used in the Data Mobility Exhibition (DME). Information on the datasets may be found at https://www.globusworld.org/tour/data-mobility-exhibition. DME endpoint definitions are stored in `dme_data.json`. Note that this file is not updated frequently so you may find that some endpoints are not currently active; if so, please try using a different entpoint.
+Automates test transfers to/from endpoints used in the Data Mobility Exhibition (DME). Information on the datasets may be found at https://www.globusworld.org/tour/data-mobility-exhibition. DME endpoint definitions are stored in `dme_data.json`. Note that this file is not updated frequently so you may find that some endpoints are not currently active; if so, please try using a different endpoint.
 
 ## Usage Examples
 #### Example 1: Transfer from a DME endpoint to your own endpoint
