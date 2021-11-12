@@ -14,7 +14,7 @@ Submitted transfer: be8fcec6-11d2-11eb-81b1-0e2f230cc907
 Get transfer details by running 'rundme status --task-id be8fcec6-11d2-11eb-81b1-0e2f230cc907'
 Visit the link below to see the changes: https://app.globus.org/app/file-manager?origin_id=606579ae-5b03-11e9-bf32-0edbf3a4e7ee&origin_path=%2Fdatasets%2Fds10&destination_id=924a32b0-6a2a-11e6-83a8-22000b97daec&destination_path=%2Fperftest%2Fmy_dme_test%2Fds10
 ```
-Submits a transfer of dataset DS10 from DME endpoint #2 (as defined by the index in [`dme_data.json`](https://github.com/vasv/dme-utils/blob/main/dme_data.json)) to the endpoint with ID `924a32b0-6a2a-11e6-83a8-22000b97daec`. Files will be written to the `my_dme_test/ds10` subdirectory under the endpoint's writable root (usually `/perftest/` or `/globus/perftest`); check the resulting URL for the specific location. If the destination directory does not exist, it will be created before the transfer is submitted.
+Submits a transfer of dataset DS10 from DME endpoint #2 (as defined by the index in [`dme_data.json`](https://github.com/vasv/dme-utils/blob/1eb463af2d37aca4a5308482d5a72db48f81c7b1/dme_data.json)) to the endpoint with ID `924a32b0-6a2a-11e6-83a8-22000b97daec`. Files will be written to the `my_dme_test/ds10` subdirectory under the endpoint's writable root (usually `/perftest/` or `/globus/perftest`); check the resulting URL for the specific location. If the destination directory does not exist, it will be created before the transfer is submitted.
 
 #### Example 2: Check the status of a transfer
 ```bash
