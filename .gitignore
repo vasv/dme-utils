@@ -8,6 +8,7 @@ __pycache__/
 *$py.class
 
 # Application data
+dme_tokens.json
 *.log
 *.log.*
 log
