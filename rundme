@@ -1,247 +1,27 @@
 #!/usr/bin/env python
 
-import os, sys, uuid, argparse
+import argparse
+import sys
+
 from argparse import RawTextHelpFormatter
-import six
 
-from globus_sdk import (
-    AuthAPIError,
-    GlobusAPIError,
-    GroupsClient,
-    NativeAppAuthClient,
-    RefreshTokenAuthorizer,
-    TransferClient,
-    TransferData,
-)
-from globus_sdk.tokenstorage import SimpleJSONFileAdapter
-
-from helpers import (
-    load_data_from_file,
-    save_data_to_file,
-    TRANSFER_LABEL,
-    uuid_pattern,
+from dme_utils import (
+    get_endpoint_data,
+    submit_transfer,
+    get_task_status,
 )
 
-APP_NAME = "DME Transfer Script"
-CLIENT_ID = "27637bc2-defa-41df-b16b-561543dc1e7e"
-AUTH_CLIENT = NativeAppAuthClient(client_id=CLIENT_ID, app_name=APP_NAME)
-
-SCOPES = (
-    "openid email profile "
-    "urn:globus:auth:scope:transfer.api.globus.org:all "
-    "urn:globus:auth:scope:groups.api.globus.org:all"
-)
-
-# DME Endpoint Access
-# User must be a member of this group to access the DME endpoints
-DME_GROUP_ID = "3ca64c67-9daf-11e9-855f-0e45b29ab6fa"
-
-
-def get_api_clients():
-
-    token_file_adapter = SimpleJSONFileAdapter(
-        os.path.expanduser("dme_tokens.json")
-    )
-
-    if not token_file_adapter.file_exists():
-        # Do a login flow, getting back initial tokens
-        AUTH_CLIENT.oauth2_start_flow(
-            requested_scopes=SCOPES,
-            refresh_tokens=True)
-        authorize_url = AUTH_CLIENT.oauth2_get_authorize_url()
-        print(f"Log into Globus at this URL: {authorize_url}")
-        auth_code = input("Enter the code you get after login here: ").strip()
-        token_response = AUTH_CLIENT.oauth2_exchange_code_for_tokens(auth_code)
-
-        # Store tokens, and extract tokens for the resource server(s) we want
-        token_file_adapter.store(token_response)
-
-    
-    # Instantiate Transfer client
-    try:
-        transfer_tokens = token_file_adapter.get_token_data(
-            "transfer.api.globus.org"
-        )
-        authorizer = RefreshTokenAuthorizer(
-            transfer_tokens["refresh_token"],
-            AUTH_CLIENT,
-            access_token=transfer_tokens["access_token"],
-            expires_at=transfer_tokens["expires_at_seconds"],
-        )
-        transfer_client = TransferClient(authorizer=authorizer)
-    except GlobusAPIError as error:
-        print(f"Failed to create Transfer API client: {error.message}")
-        sys.exit(1)
-
-    # Instantiate Groups client
-    try:
-        groups_tokens = token_file_adapter.get_token_data(
-            "groups.api.globus.org"
-        )
-        authorizer = RefreshTokenAuthorizer(
-            groups_tokens["refresh_token"],
-            AUTH_CLIENT,
-            access_token=groups_tokens["access_token"],
-            expires_at=groups_tokens["expires_at_seconds"],
-        )
-        groups_client = GroupsClient(authorizer=authorizer)
-    except GlobusAPIError as error:
-        print(f"Failed to create Groups API client: {error.message}")
-        sys.exit(1)
-
-    return transfer_client, groups_client
-
-
-def validate_group_membership(groups_client=None):
-    # Only members of the DME Endpoint Access group can access DME endpoints
-    # Check/confirm group membership before proceeding
-    memberships = groups_client.get_my_groups()
-    try:
-        dme_membership = next(m for m in memberships if m["id"] == DME_GROUP_ID)
-        try:
-            status = next(
-                s
-                for s in dme_membership["my_memberships"]
-                if s["status"] == "active"
-            )
-        except StopIteration as error:
-            print(
-                f"You must be an active member of the DME Endpoint Access group to access DME endpoints"
-            )
-            sys.exit(1)
-    except StopIteration as error:
-        print(
-            f"You must be a member of the DME Endpoint Access group to access DME endpoints"
-        )
-        print(
-            f"Request membership at: https://app.globus.org/groups/3ca64c67-9daf-11e9-855f-0e45b29ab6fa/join"
-        )
-        sys.exit(1)
-
-
-def endpoint_info():
-    endpoints = load_data_from_file("dme_data.json")
-    for endpoint in endpoints:
-        print(f"-- Endpoint #: {endpoint['index']}")
-        print(f"Name: {endpoint['name']}")
-        print(f"ID: {endpoint['id']}")
-        print("Writable: " + ("True" if endpoint['writable'] == 1 else "False") + "\n")
-
-
-def create_destination_directory(transfer_client=None, dest_ep=None, dest_path=None):
-    # Create the destination path if it does not exist
-    try:
-        transfer_client.operation_ls(dest_ep, path=dest_path)
-    except GlobusAPIError:
-        try:
-            transfer_client.operation_mkdir(dest_ep, dest_path)
-            print(f"Created directory: {dest_path}")
-        except GlobusAPIError as error:
-            print(f"Failed to start transfer: {error.message}")
-            sys.exit(1)
-
-
-def validate_endpoint_path(transfer_client=None, endpoint=None, path=None):
-    # Check the endpoint path exists
-    try:
-        transfer_client.operation_ls(endpoint, path=path)
-    except GlobusAPIError as error:
-        print(f"Failed to query endpoint {endpoint}: {error.message}")
-        sys.exit(1)
-
-
-def submit_transfer(
-    transfer_client=None, dataset=None, source_id=None, 
-    source_path=None, dest_id=None, dest_path=None, label=None
-):
-    tdata = TransferData(transfer_client, source_id, dest_id, label=label)
-    tdata.add_item(source_path, dest_path, recursive=True)
-    task = transfer_client.submit_transfer(tdata)
-
-    url_string = (
-        "https://app.globus.org/file-manager?"
-        + six.moves.urllib.parse.urlencode(
-            {
-                "origin_id": source_id,
-                "origin_path": source_path,
-                "destination_id": dest_id,
-                "destination_path": dest_path,
-            }
-        )
-    )
-
-    return task["task_id"], url_string
-
-
-def get_dme_endpoint(endpoint_number):
-
-    DME_ENDPOINTS = load_data_from_file("dme_data.json")
-    
-    # Get DME endpoint UUID
-    try:
-        endpoint = next(
-            ep for ep in DME_ENDPOINTS if int(ep["index"]) == endpoint_number
-        )
-    except StopIteration as error:
-        print(
-            f"DME endpoint #{endpoint_number} not found; ensure endpoint index exists in dme_data.json"
-        )
-        sys.exit(1)
-
-    return endpoint
-
-
-def get_endpoint(source_dest=None, args=None):
-    if source_dest == "SOURCE":
-        if args.nondmesource:
-            # Ensure non-DME endpoint is a valid UUID
-            print(args.nondmesource)
-            if bool(uuid_pattern.match(args.nondmesource)):
-                endpoint_id = args.nondmesource
-            else:
-                print("Source endpoint ID is not a valid UUID - aborting.")
-                sys.exit(1)
-            path = args.sourcepath
-        else:
-            # Get source DME endpoint data
-            dme_endpoint = get_dme_endpoint(endpoint_number=int(args.source))
-            endpoint_id = dme_endpoint["id"]
-            path = dme_endpoint["paths"]["source"] + args.dataset
-
-    else:
-        if args.nondmedest:
-            # Ensure non-DME endpoint is a valid UUID
-            if bool(uuid_pattern.match(args.nondmedest)):
-                endpoint_id = args.nondmedest
-            else:
-                print("Destination endpoint ID is not a valid UUID - aborting.")
-                sys.exit(1)
-            path = args.destpath
-        else:
-            # Get destination DME endpoint data
-            dme_endpoint = get_dme_endpoint(endpoint_number=int(args.dest))
-            endpoint_id = dme_endpoint["id"]
-            if (dme_endpoint["writable"] == 1):
-                path = (
-                    dme_endpoint["paths"]["dest"]
-                    if ("dest" in dme_endpoint["paths"])
-                    else ""
-                ) + (args.destpath if args.destpath else uuid.uuid4())
-            else:
-                path = args.destpath if args.destpath else uuid.uuid4()
-
-    return endpoint_id, path
+from helpers import TRANSFER_LABEL
 
 
 def parse_options():
-
     parser = argparse.ArgumentParser(
         prog="rundme",
         description="""
-        Globus Transfer Utility for the Data Mobility Exhibition (DME)\n
+        -- Globus utility for the Data Mobility Exhibition (DME)\n
         Submits Globus transfer requests using the standard datasets defined
         for the DME. The source and destination may be one of the DME endpoints
-        or an endpoint of your choosing.\n
+        or an endpoint of your choosing (but at least one must be a DME endpoint).\n
         The DME datasets and endpoints are defined on this page:
         https://www.globusworld.org/tour/data-mobility-exhibition""",
         formatter_class=RawTextHelpFormatter,
@@ -288,11 +68,6 @@ def parse_options():
         help="Destination path (only used with --non-dme-dest)",
     )
     parser_transfer.add_argument(
-        "--create-path",
-        dest="createpath",
-        help="Create the destination folder if it does not already exist",
-    )
-    parser_transfer.add_argument(
         "--label",
         default=TRANSFER_LABEL,
         help=f"User friendly label for this transfer. Default: {TRANSFER_LABEL}",
@@ -313,6 +88,9 @@ def parse_options():
 
     # Ensure valid arguments state
     if args.command_name in ["transfer"]:
+        if (args.nondmesource is not None) and (args.nondmedest is not None):
+            print("Please specify at least one DME collection (source or destination)")
+            sys.exit(1)
         if args.nondmesource and not args.sourcepath:
             print(f"--source-path must be specified for non-DME source endpoint")
             sys.exit(1)
@@ -325,85 +103,19 @@ def parse_options():
         parser.print_usage()
         sys.exit(1)
 
-    return args.command_name, args
+    if args.command_name == "endpoints":
+        get_endpoint_data()
+
+    elif args.command_name == "transfer":
+        submit_transfer(args)
+
+    elif args.command_name == "status":
+        get_task_status(args)
 
 
 # Get list of active DME endpoints
 def main():
-
-    # Get command line arguments
-    command, args = parse_options()
-
-    # Set up Transfer API client and Groups access token
-    # TODO: Replace with Groups API client when available in SDK
-    transfer_client, groups_client = get_api_clients()
-
-    if command == "endpoints":
-        endpoint_info()
-
-    elif command == "transfer":
-
-        # Get endpoint ID and path
-        try:
-            source_endpoint_id, source_path = get_endpoint(source_dest="SOURCE", args=args)
-            dest_endpoint_id, dest_path = get_endpoint(source_dest="DEST", args=args)
-
-            print(
-                f"Source endpoint name: {transfer_client.get_endpoint(source_endpoint_id)['display_name']}"
-            )
-            print(f"Source path: {source_path}")
-            print(
-                f"Destination endpoint name: {transfer_client.get_endpoint(dest_endpoint_id)['display_name']}"
-            )
-            print(f"Destination path: {dest_path}")
-        except AuthAPIError as error:
-            print(f"Globus Auth API Error: Failed to get endpoint details")
-            print(f"Try deleting the 'dme-tokens.json' file and run the script to force re-authentication.")
-            sys.exit(1)
-
-
-        # Check user's group membership in DME Endpoint Access
-        validate_group_membership(groups_client)
-
-        # Autoactivate endpoints
-        validate_endpoint_path(transfer_client, source_endpoint_id, source_path)
-
-        # Create destination folder, if required
-        if args.createpath:
-            create_destination_directory(transfer_client, dest_endpoint_id, args.destpath)
-        else:
-            validate_endpoint_path(transfer_client, dest_endpoint_id, dest_path)
-
-        try:
-            transfer_client.endpoint_autoactivate(source_endpoint_id)
-            transfer_client.endpoint_autoactivate(dest_endpoint_id)
-        except GlobusAPIError as error:
-            if error.http_status == 401:
-                sys.exit(
-                    f"Refresh token(s) expired. Please delete the  \
-          `~/.globus-native-apps.cfg` file and try again."
-                )
-            else:
-                print(f"Failed to autoactivate endpoint: {error.message}")
-                sys.exit(1)
-
-        task_id, url = submit_transfer(
-            transfer_client=transfer_client,
-            dataset=args.dataset,
-            source_id=source_endpoint_id,
-            source_path=source_path,
-            dest_id=dest_endpoint_id,
-            dest_path=dest_path,
-            label=args.label if args.label else TRANSFER_LABEL,
-        )
-
-        print(f"Submitted transfer: {task_id}")
-        print(f"Get transfer details by running: ./rundme status --task-id {task_id}")
-        print(f"Visit the link below to see the changes: {url}")
-
-    elif command == "status":
-        task_details = transfer_client.get_task(args.taskid)
-        print(task_details)
+    parse_options()
 
 
 if __name__ == "__main__":

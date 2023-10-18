@@ -1,12 +1,9 @@
-import re
-import os
 import json
+import os
+import re
+import sys
 import time
 
-uuid_regex = (
-    "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
-)
-uuid_pattern = re.compile(uuid_regex)
 
 TRANSFER_LABEL = f"DME Transfer submitted on \
 {time.strftime('%Y-%m-%d', time.localtime(time.time()))}"
@@ -35,3 +32,16 @@ def save_data_to_file(filepath, key, data):
         store[key] = data
     with open(filepath, "w") as f:
         json.dump(store, f)
+
+
+def validate_endpoint_id(id=None):
+    uuid_regex = (
+        "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
+    )
+    uuid_pattern = re.compile(uuid_regex)
+
+    if bool(uuid_pattern.match(id)):
+        return True
+    else:
+        print("Source endpoint ID is not a valid UUID - aborting.")
+        sys.exit(1)
